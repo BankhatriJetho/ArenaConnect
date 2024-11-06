@@ -3,31 +3,44 @@ package com.arenaconnect.backend.services;
 import com.arenaconnect.backend.models.User;
 import com.arenaconnect.backend.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.core.userdetails.User.UserBuilder;
 import org.springframework.stereotype.Service;
-import java.util.Optional;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Service
-public class UserService {
-    @Autowired
-    private UserRepository userRepository;
+public class UserService implements UserDetailsService {
 
-    // Save a user
-    public User saveUser(User user) {
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    @Autowired
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    public User registerUser(User user) {
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         return userRepository.save(user);
     }
 
-    // Find a user by username
-    public Optional<User> findUserByUsername(String username) {
-        return Optional.ofNullable(userRepository.findByUsername(username));
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        // Create a UserDetails object directly
+        UserBuilder builder = org.springframework.security.core.userdetails.User.builder();
+        builder.username(user.getUsername());
+        builder.password(user.getPassword());
+        builder.roles("USER");  // Customize roles if needed
+        return builder.build();
     }
 
-    // Find a user by ID
-    public Optional<User> findUserById(Long id) {
-        return userRepository.findById(id);
-    }
-
-    // Get all users
-    public Iterable<User> findAllUsers() {
-        return userRepository.findAll();
+    public User findUserById(Long id) {
+        return userRepository.findById(id).orElse(null);
     }
 }
